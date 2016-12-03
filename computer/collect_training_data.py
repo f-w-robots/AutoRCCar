@@ -7,20 +7,72 @@ import pygame
 from pygame.locals import *
 import socket
 
+from geventwebsocket import WebSocketServer, WebSocketApplication, Resource
+
+import tornado.ioloop
+import tornado.web
+import tornado.websocket
+import tornado.template
+
+import time
+import thread
+
+
+class WSSerial(object):
+    def __init__(self):
+        self.no_connected = True
+        class WSHandler(tornado.websocket.WebSocketHandler):
+            def check_origin(self, origin):
+                return True
+
+            def open(self):
+                global weight
+                weight.connection = self
+                weight.no_connected = False
+                print 'connection opened...'
+
+            def on_message(self, message):
+                print 'received:', message
+
+            def on_close(self):
+                print 'connection closed...'
+
+        application = tornado.web.Application([
+            (r'/', WSHandler)
+        ])
+
+        global weight
+        weight = self
+
+        def someFunc():
+            application.listen(8100)
+            tornado.ioloop.IOLoop.instance().start()
+
+        thread.start_new_thread(someFunc, ())    
+
+    def write(self, chr):
+        print 'write'
+        self.connection.write_message(chr)
+
 
 class CollectTrainingData(object):
     
     def __init__(self):
 
         self.server_socket = socket.socket()
-        self.server_socket.bind(('192.168.1.100', 8000))
+        self.server_socket.bind(('0.0.0.0', 8000))
         self.server_socket.listen(0)
 
-        # accept a single connection
+        # # accept a single connection
         self.connection = self.server_socket.accept()[0].makefile('rb')
 
         # connect to a seral port
-        self.ser = serial.Serial('/dev/tty.usbmodem1421', 115200, timeout=1)
+        # self.ser = serial.Serial('/dev/tty.usbmodem1421', 115200, timeout=1)
+        self.ser = WSSerial()
+        print 'started'
+        while self.ser.no_connected:
+            time.sleep(1)
+            print 'wait ESP'
         self.send_inst = True
 
         # create labels
@@ -30,6 +82,7 @@ class CollectTrainingData(object):
         self.temp_label = np.zeros((1, 4), 'float')
 
         pygame.init()
+        pygame.display.set_mode((100, 100))
         self.collect_image()
 
     def collect_image(self):
@@ -48,6 +101,7 @@ class CollectTrainingData(object):
             stream_bytes = ' '
             frame = 1
             while self.send_inst:
+                
                 stream_bytes += self.connection.read(1024)
                 first = stream_bytes.find('\xff\xd8')
                 last = stream_bytes.find('\xff\xd9')
@@ -73,6 +127,7 @@ class CollectTrainingData(object):
 
                     # get input from human driver
                     for event in pygame.event.get():
+                        print event.type
                         if event.type == KEYDOWN:
                             key_input = pygame.key.get_pressed()
 
