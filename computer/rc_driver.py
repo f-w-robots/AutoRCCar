@@ -7,8 +7,52 @@ import cv2
 import numpy as np
 import math
 
+import tornado.ioloop
+import tornado.web
+import tornado.websocket
+import tornado.template
+
+import time
+import thread
+
 # distance data measured by ultrasonic sensor
 sensor_data = " "
+
+class WSSerial(object):
+    def __init__(self):
+        self.no_connected = True
+        class WSHandler(tornado.websocket.WebSocketHandler):
+            def check_origin(self, origin):
+                return True
+
+            def open(self):
+                global weight
+                weight.connection = self
+                weight.no_connected = False
+                print 'connection opened...'
+
+            def on_message(self, message):
+                print 'received:', message
+
+            def on_close(self):
+                print 'connection closed...'
+
+        application = tornado.web.Application([
+            (r'/', WSHandler)
+        ])
+
+        global weight
+        weight = self
+
+        def someFunc():
+            application.listen(8100)
+            tornado.ioloop.IOLoop.instance().start()
+
+        thread.start_new_thread(someFunc, ())    
+
+    def write(self, chr):
+        print 'write'
+        self.connection.write_message(chr)
 
 
 class NeuralNetwork(object):
@@ -29,7 +73,12 @@ class NeuralNetwork(object):
 class RCControl(object):
 
     def __init__(self):
-        self.serial_port = serial.Serial('/dev/tty.usbmodem1421', 115200, timeout=1)
+        # self.serial_port = serial.Serial('/dev/tty.usbmodem1421', 115200, timeout=1)
+        self.serial_port = WSSerial()
+        print 'started'
+        while self.serial_port.no_connected:
+            time.sleep(1)
+            print 'wait ESP'
 
     def steer(self, prediction):
         if prediction == 2:
@@ -282,9 +331,9 @@ class ThreadServer(object):
         server = SocketServer.TCPServer((host, port), SensorDataHandler)
         server.serve_forever()
 
-    distance_thread = threading.Thread(target=server_thread2, args=('192.168.1.100', 8002))
-    distance_thread.start()
-    video_thread = threading.Thread(target=server_thread('192.168.1.100', 8000))
+    # distance_thread = threading.Thread(target=server_thread2, args=('0.0.0.0', 8002))
+    # distance_thread.start()
+    video_thread = threading.Thread(target=server_thread('0.0.0.0', 8000))
     video_thread.start()
 
 if __name__ == '__main__':
