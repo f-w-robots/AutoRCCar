@@ -25,7 +25,7 @@ class RCControl(object):
             self.serial_port.write(str('12'))
             print("Left")
         elif prediction == "Right":
-            self.serial_port.write(str('01'))
+            self.serial_port.write(str('11'))
             print("Right")
         elif prediction == "On":
             self.serial_port.write(str('001'))
@@ -39,8 +39,8 @@ class RCControl(object):
             self.serial_port.write(str('10'))
             print("Reverse")
         else:
-            # self.stop()
-            self.serial_port.write(str('0000'))
+            self.stop()
+            # self.serial_port.write(str('0000'))
 
     def stop(self):
         self.serial_port.write(str('00'))
@@ -81,10 +81,10 @@ class WSSerial(object):
         weight = self
 
         def someFunc():
-            application.listen(3000)
+            application.listen(3030)
             tornado.ioloop.IOLoop.instance().start()
 
-        thread.start_new_thread(someFunc, ())    
+        thread.start_new_thread(someFunc, ())
 
     def write(self, chr):
         print 'write'
@@ -100,11 +100,28 @@ def index():
 	vsh.command('SoundOff') #forward
 	return "On"
 
+@route('/off')
+def index():
+	vsh.command('On')
+	# time.sleep(2)
+	# vsh.command('Off') #forward
+	return "Off"
+
+@route('/stop')
+def index():
+	vsh.command('Stop')
+	return "Stop"
 
 @route('/forward')
 def index():
 	vsh.command('Forward')
 	return "Forward"
+
+@route('/reverse')
+def index():
+	vsh.command('Reverse')
+	return "Reverse"
+
 
 @route('/left')
 def index():
@@ -118,4 +135,4 @@ def index():
 
 global vsh
 vsh = Move()
-run(host='localhost', port=8080)
+run(host='192.168.43.198', port=3000)
